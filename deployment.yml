@@ -15,7 +15,7 @@ spec:
         app: web-server-app
     spec:
       containers:
-      - name: nweb-server-app
+      - name: web-server-app
         image: jhonuel/devweb
         ports:
         - containerPort: 3000
