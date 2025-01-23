@@ -1,53 +1,62 @@
+
 pipeline {
     agent { label 'server' }
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhubpass') // Credenciales de DockerHub
-        REGISTRY = "docker.io"                               // Registro Docker (puede cambiar según necesidad)
-        IMAGE_NAME = "jhonuel/devweb"                        // Nombre de la imagen
+        DOCKER_IMAGE = "jhonuel/devweb"                      // Nombre de la imagen en Docker Hub
+        REGISTRY = "docker.io"                               // Registro Docker
+        KUBECONFIG = "/root/kube_config_cluster.yml"         // Ruta al archivo kubeconfig
     }
 
     stages {
-        stage('Clonar Repositorio') {
+        stage('Desplegar en Kubernetes') {
             steps {
                 script {
-                    echo "Clonando el repositorio desde GitHub..."
-                    git 'https://github.com/jhonuel/devweb.git'
-                }
-            }
-        }
+                    echo "Preparando despliegue en Kubernetes..."
 
-        stage('Construir Imagen Docker') {
-            steps {
-                script {
-                    echo "Construyendo la imagen Docker..."
-                    sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:latest ."
-                }
-            }
-        }
+                    // Verifica el archivo kubeconfig
+                    sh "kubectl --kubeconfig=${KUBECONFIG} config view"
 
-        stage('Subir Imagen al Registro') {
-            steps {
-                script {
-                    echo "Iniciando sesión en DockerHub..."
-                    sh "docker login -u ${DOCKERHUB_CREDENTIALS_USR} -p ${DOCKERHUB_CREDENTIALS_PSW} ${REGISTRY}"
-                    
-                    echo "Subiendo la imagen al registro Docker..."
-                    sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
-                }
-            }
-        }
+                    // Crea un archivo de manifiesto Kubernetes dinámico
+                    writeFile file: 'k8s-deployment.yaml', text: """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devweb-deployment
+  labels:
+    app: devweb
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: devweb
+  template:
+    metadata:
+      labels:
+        app: devweb
+    spec:
+      containers:
+      - name: devweb-container
+        image: ${REGISTRY}/${DOCKER_IMAGE}:latest
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devweb-service
+spec:
+  selector:
+    app: devweb
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
+"""
 
-        stage('Desplegar Imagen') {
-            steps {
-                script {
-                    echo "Desplegando la aplicación en el servidor..."
-                    
-                    // Elimina cualquier contenedor previo con el mismo nombre
-                    sh "docker rm -f nodeapp || true"
-
-                    // Ejecuta la nueva imagen
-                    sh "docker run -d --name nodeapp -p 8080:8080 ${REGISTRY}/${IMAGE_NAME}:latest"
+                    // Aplica el manifiesto en el clúster
+                    sh "kubectl --kubeconfig=${KUBECONFIG} apply -f k8s-deployment.yaml"
                 }
             }
         }
@@ -55,7 +64,7 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline completado con éxito. La aplicación está desplegada."
+            echo "Pipeline completado con éxito. La aplicación está desplegada en Kubernetes."
         }
         failure {
             echo "El pipeline falló. Revisa los registros para más detalles."
