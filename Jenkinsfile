@@ -13,14 +13,14 @@ pipeline {
                     git 'https://github.com/jhonuel/devweb.git'
 
                     echo "Construyendo la imagen Docker..."
-                    sh "docker build -t \${REGISTRY}/nodeapp_test:latest ."
+                    sh "docker build -t \${REGISTRY}/jhonuel/devweb ."
 
                     echo "Subiendo la imagen al registro Docker..."
                     sh "docker login -u \${DOCKER_USERNAME} -p \${DOCKER_PASSWORD}"
-                    sh "docker push \${REGISTRY}/nodeapp_test:latest"
+                    sh "docker push \${REGISTRY}/jhonuel/devweb:latest"
 
                     echo "Desplegando en el servidor..."
-                    sh "docker run -d --name nodeapp -p 8080:8080 \${REGISTRY}/nodeapp_test:latest"
+                    sh "docker run -d --name nodeapp -p 8080:8080 \${REGISTRY}/jhonuel/devweb:latest"
                 }
             }
         }
