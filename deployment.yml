@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server-app-deployment
+  labels:
+    app: web-server-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-server-app
+  template:
+    metadata:
+      labels:
+        app: web-server-app
+    spec:
+      containers:
+      - name: nweb-server-app
+        image: jhonuel/devweb
+        ports:
+        - containerPort: 3000
